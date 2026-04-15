@@ -175,8 +175,8 @@
 
     const mapLeft = L.map("map-left", { zoomControl: true }).setView([26.2, 92.6], 7);
     const mapRight = L.map("map-right", { zoomControl: true }).setView([26.2, 92.6], 7);
-    const tile = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-    const tileAttr = '&copy; OpenStreetMap contributors';
+    const tile = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+    const tileAttr = '&copy; OpenStreetMap contributors &copy; CARTO';
     L.tileLayer(tile, { attribution: tileAttr, maxZoom: 19 }).addTo(mapLeft);
     L.tileLayer(tile, { attribution: tileAttr, maxZoom: 19 }).addTo(mapRight);
 
