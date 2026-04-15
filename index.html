@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Assam AC Shape Comparison</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <style>
+    :root {
+      --bg: #f3f1ea;
+      --ink: #1f2d3d;
+      --card: #ffffff;
+      --accent: #0e6e6e;
+      --border: #d8d4c8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at top right, #fefaf0 0%, var(--bg) 45%, #ece6dc 100%);
+    }
+    .wrap {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    .title {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+    }
+    .title h1 {
+      margin: 0 0 6px;
+      font-size: 1.15rem;
+    }
+    .title p {
+      margin: 0;
+      font-size: 0.93rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      min-height: 75vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+    .panel-head {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      background: #faf8f1;
+    }
+    .map {
+      width: 100%;
+      height: 100%;
+      min-height: 520px;
+    }
+    .legend {
+      margin-top: 12px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      display: grid;
+      gap: 8px;
+    }
+    .swatches {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+    }
+    .swatch {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .chip {
+      width: 14px;
+      height: 14px;
+      border: 1px solid #999;
+      border-radius: 2px;
+      display: inline-block;
+    }
+    .info-box {
+      line-height: 1.4;
+      font-size: 12px;
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid #bbb;
+      border-radius: 8px;
+      min-width: 220px;
+    }
+    .info-box strong {
+      font-size: 13px;
+      display: block;
+      margin-bottom: 4px;
+    }
+    @media (max-width: 980px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      .panel {
+        min-height: 60vh;
+      }
+      .map {
+        min-height: 450px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="title">
+      <h1>Assam AC Boundary Comparison</h1>
+      <p>Left: <code>ASSAM_ASSEMBLY_pre2023</code> dissolved by <code>AC_NO</code>. Right: <code>assam-assembly-delimited</code> dissolved by <code>AC_NO</code>. Colors follow Polsby-Popper compactness category.</p>
+    </section>
+
+    <section class="grid">
+      <article class="panel">
+        <div class="panel-head">Pre-2023 (Dissolved)</div>
+        <div id="map-left" class="map"></div>
+      </article>
+      <article class="panel">
+        <div class="panel-head">Delimited (Dissolved)</div>
+        <div id="map-right" class="map"></div>
+      </article>
+    </section>
+
+    <section class="legend">
+      <div><strong>Compactness Category (Polsby-Popper)</strong></div>
+      <div class="swatches" id="legend-swatches"></div>
+      <div>Hover an AC to compare the same <code>AC_NO</code> in both maps. Click to zoom.</div>
+    </section>
+  </div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script>
+    const COLOR_BY_CATEGORY = {
+      "Very High": "#1a9850",
+      "High": "#66bd63",
+      "Moderate": "#fee08b",
+      "Low": "#f46d43",
+      "Very Low": "#d73027",
+      "Unknown": "#9b9b9b"
+    };
+
+    const legendEl = document.getElementById("legend-swatches");
+    Object.entries(COLOR_BY_CATEGORY).forEach(([label, color]) => {
+      const item = document.createElement("span");
+      item.className = "swatch";
+      item.innerHTML = `<span class="chip" style="background:${color}"></span>${label}`;
+      legendEl.appendChild(item);
+    });
+
+    const mapLeft = L.map("map-left", { zoomControl: true }).setView([26.2, 92.6], 7);
+    const mapRight = L.map("map-right", { zoomControl: true }).setView([26.2, 92.6], 7);
+    const tile = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+    const tileAttr = '&copy; OpenStreetMap contributors';
+    L.tileLayer(tile, { attribution: tileAttr, maxZoom: 19 }).addTo(mapLeft);
+    L.tileLayer(tile, { attribution: tileAttr, maxZoom: 19 }).addTo(mapRight);
+
+    let syncing = false;
+    function bindSync(src, dst) {
+      src.on("moveend zoomend", () => {
+        if (syncing) return;
+        syncing = true;
+        dst.setView(src.getCenter(), src.getZoom(), { animate: false });
+        syncing = false;
+      });
+    }
+    bindSync(mapLeft, mapRight);
+    bindSync(mapRight, mapLeft);
+
+    function infoControl(map) {
+      const ctl = L.control({ position: "topright" });
+      ctl.onAdd = function () {
+        this._div = L.DomUtil.create("div", "info-box");
+        this.update();
+        return this._div;
+      };
+      ctl.update = function (props) {
+        if (!props) {
+          this._div.innerHTML = "<strong>AC Details</strong>Hover over a constituency";
+          return;
+        }
+        const m = props._metrics || {};
+        this._div.innerHTML =
+          `<strong>${props.AC_NAME || "Unknown"} (${props.AC_NO ?? "-"})</strong>` +
+          `Contiguous: ${String(m.is_contiguous)}<br>` +
+          `Parts: ${m.part_count ?? "-"}<br>` +
+          `Convex Hull Ratio: ${num(m.convex_hull_ratio)} (${m.convex_hull_ratio_category || "Unknown"})<br>` +
+          `Polsby-Popper: ${num(m.polsby_popper_score)} (${m.polsby_popper_category || "Unknown"})`;
+      };
+      ctl.addTo(map);
+      return ctl;
+    }
+
+    const infoLeft = infoControl(mapLeft);
+    const infoRight = infoControl(mapRight);
+
+    function num(v) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n.toFixed(3) : "-";
+    }
+
+    function parseCsvToMap(text) {
+      const parsed = Papa.parse(text, { header: true, dynamicTyping: false, skipEmptyLines: true });
+      const out = new Map();
+      parsed.data.forEach((row) => out.set(String(row.AC_NO), row));
+      return out;
+    }
+
+    function styleFor(feature) {
+      const m = feature.properties._metrics || {};
+      const cat = m.polsby_popper_category || "Unknown";
+      return {
+        color: "#3f3f3f",
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.58,
+        fillColor: COLOR_BY_CATEGORY[cat] || COLOR_BY_CATEGORY.Unknown
+      };
+    }
+
+    function hoverStyle(layer) {
+      layer.setStyle({ weight: 2.5, color: "#0f172a", fillOpacity: 0.75 });
+      if (layer.bringToFront) layer.bringToFront();
+    }
+
+    function resetStyle(layerGroup, layer) {
+      layerGroup.resetStyle(layer);
+    }
+
+    async function fetchText(url) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Failed to load ${url}`);
+      return res.text();
+    }
+
+    async function fetchJson(url) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Failed to load ${url}`);
+      return res.json();
+    }
+
+    Promise.all([
+      fetchJson("./data/pre2023.geojson"),
+      fetchText("./data/pre2023_metrics.csv"),
+      fetchJson("./data/delimited.geojson"),
+      fetchText("./data/delimited_metrics.csv")
+    ]).then(([leftGeo, leftCsv, rightGeo, rightCsv]) => {
+      const leftMetrics = parseCsvToMap(leftCsv);
+      const rightMetrics = parseCsvToMap(rightCsv);
+
+      leftGeo.features.forEach((f) => { f.properties._metrics = leftMetrics.get(String(f.properties.AC_NO)) || {}; });
+      rightGeo.features.forEach((f) => { f.properties._metrics = rightMetrics.get(String(f.properties.AC_NO)) || {}; });
+
+      const leftIndex = new Map();
+      const rightIndex = new Map();
+      let leftLayerRef;
+      let rightLayerRef;
+
+      function wireEvents(side, layer, feature) {
+        const ac = String(feature.properties.AC_NO);
+        if (side === "left") leftIndex.set(ac, layer);
+        else rightIndex.set(ac, layer);
+
+        layer.on({
+          mouseover: () => {
+            if (side === "left") {
+              hoverStyle(layer);
+              const twin = rightIndex.get(ac);
+              if (twin) hoverStyle(twin);
+              infoLeft.update(feature.properties);
+              infoRight.update(twin ? twin.feature.properties : null);
+            } else {
+              hoverStyle(layer);
+              const twin = leftIndex.get(ac);
+              if (twin) hoverStyle(twin);
+              infoRight.update(feature.properties);
+              infoLeft.update(twin ? twin.feature.properties : null);
+            }
+          },
+          mouseout: () => {
+            if (side === "left") {
+              resetStyle(leftLayerRef, layer);
+              const twin = rightIndex.get(ac);
+              if (twin) resetStyle(rightLayerRef, twin);
+            } else {
+              resetStyle(rightLayerRef, layer);
+              const twin = leftIndex.get(ac);
+              if (twin) resetStyle(leftLayerRef, twin);
+            }
+            infoLeft.update();
+            infoRight.update();
+          },
+          click: () => {
+            const b = layer.getBounds();
+            if (side === "left") {
+              mapLeft.fitBounds(b.pad(0.25));
+              mapRight.fitBounds(b.pad(0.25));
+            } else {
+              mapRight.fitBounds(b.pad(0.25));
+              mapLeft.fitBounds(b.pad(0.25));
+            }
+          }
+        });
+      }
+
+      leftLayerRef = L.geoJSON(leftGeo, {
+        style: styleFor,
+        onEachFeature: (feature, layer) => wireEvents("left", layer, feature)
+      }).addTo(mapLeft);
+
+      rightLayerRef = L.geoJSON(rightGeo, {
+        style: styleFor,
+        onEachFeature: (feature, layer) => wireEvents("right", layer, feature)
+      }).addTo(mapRight);
+
+      mapLeft.fitBounds(leftLayerRef.getBounds().pad(0.05));
+      mapRight.fitBounds(rightLayerRef.getBounds().pad(0.05));
+    }).catch((err) => {
+      alert(`Map data load error: ${err.message}`);
+      console.error(err);
+    });
+  </script>
+</body>
+</html>
