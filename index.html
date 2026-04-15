@@ -57,7 +57,7 @@
       overflow: hidden;
       min-height: 75vh;
       display: grid;
-      grid-template-rows: auto 1fr;
+      grid-template-rows: auto 1fr auto;
     }
     .panel-head {
       padding: 8px 10px;
@@ -69,6 +69,37 @@
       width: 100%;
       height: 100%;
       min-height: 520px;
+    }
+    .panel-stats {
+      border-top: 1px solid var(--border);
+      background: #fffdf8;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .metric-row {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .metric-label {
+      font-weight: 600;
+      color: #2b3d4f;
+    }
+    .stack {
+      display: flex;
+      width: 100%;
+      height: 16px;
+      border: 1px solid #aaa;
+      border-radius: 3px;
+      overflow: hidden;
+      background: #efefef;
+    }
+    .seg {
+      height: 100%;
+      min-width: 1px;
     }
     .legend {
       margin-top: 12px;
@@ -135,10 +166,12 @@
       <article class="panel">
         <div class="panel-head">Pre-2023 (Dissolved)</div>
         <div id="map-left" class="map"></div>
+        <div id="stats-left" class="panel-stats"></div>
       </article>
       <article class="panel">
         <div class="panel-head">Delimited (Dissolved)</div>
         <div id="map-right" class="map"></div>
+        <div id="stats-right" class="panel-stats"></div>
       </article>
     </section>
 
@@ -164,6 +197,7 @@
       "Very Low": "#d73027",
       "Unknown": "#9b9b9b"
     };
+    const CATEGORY_ORDER = ["Very High", "High", "Moderate", "Low", "Very Low", "Unknown"];
 
     const legendEl = document.getElementById("legend-swatches");
     Object.entries(COLOR_BY_CATEGORY).forEach(([label, color]) => {
@@ -231,6 +265,47 @@
       return out;
     }
 
+    function categoryCounts(rows, key) {
+      const counts = Object.fromEntries(CATEGORY_ORDER.map((c) => [c, 0]));
+      rows.forEach((r) => {
+        const cat = r[key] && counts[r[key]] !== undefined ? r[key] : "Unknown";
+        counts[cat] += 1;
+      });
+      return counts;
+    }
+
+    function createStack(container, label, counts, total) {
+      const row = document.createElement("div");
+      row.className = "metric-row";
+      row.innerHTML = `<div class="metric-label">${label}</div><div class="stack"></div>`;
+      const stack = row.querySelector(".stack");
+      CATEGORY_ORDER.forEach((cat) => {
+        const n = counts[cat] || 0;
+        const pct = total > 0 ? (n / total) * 100 : 0;
+        const seg = document.createElement("div");
+        seg.className = "seg";
+        seg.style.width = `${pct}%`;
+        seg.style.background = COLOR_BY_CATEGORY[cat];
+        seg.title = `${cat}: ${n} (${pct.toFixed(1)}%)`;
+        stack.appendChild(seg);
+      });
+      container.appendChild(row);
+    }
+
+    function renderStats(containerId, metricMap) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = "";
+      const rows = Array.from(metricMap.values());
+      const total = rows.length;
+      const title = document.createElement("div");
+      title.style.fontSize = "12px";
+      title.style.color = "#5a6470";
+      title.textContent = `Category Distribution (n=${total})`;
+      container.appendChild(title);
+      createStack(container, "Convex Hull", categoryCounts(rows, "convex_hull_ratio_category"), total);
+      createStack(container, "Polsby-Popper", categoryCounts(rows, "polsby_popper_category"), total);
+    }
+
     function styleFor(feature) {
       const m = feature.properties._metrics || {};
       const cat = m.polsby_popper_category || "Unknown";
@@ -272,6 +347,8 @@
     ]).then(([leftGeo, leftCsv, rightGeo, rightCsv]) => {
       const leftMetrics = parseCsvToMap(leftCsv);
       const rightMetrics = parseCsvToMap(rightCsv);
+      renderStats("stats-left", leftMetrics);
+      renderStats("stats-right", rightMetrics);
 
       leftGeo.features.forEach((f) => { f.properties._metrics = leftMetrics.get(String(f.properties.AC_NO)) || {}; });
       rightGeo.features.forEach((f) => { f.properties._metrics = rightMetrics.get(String(f.properties.AC_NO)) || {}; });
