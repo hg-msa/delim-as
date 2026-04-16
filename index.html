@@ -174,7 +174,7 @@
   <div class="wrap">
     <section class="title">
       <h1>Assam AC Boundary Comparison</h1>
-      <p>Left: <code>ASSAM_ASSEMBLY_pre2023</code> dissolved by <code>AC_NO</code>. Right: <code>assam-assembly-delimited</code> dissolved by <code>AC_NO</code>. Use the selector to recolor by compactness metric.</p>
+      <p>Left: <code>ASSAM_ASSEMBLY_pre2023</code> dissolved by <code>AC_NO</code>. Right: <code>assam-assembly-delimited</code> dissolved by <code>AC_NO</code>. Use the selector to recolor by compactness metric. Contiguity uses a 0.1% minimum part-area threshold.</p>
       <label class="controls-row">
         Color geographies by:
         <select id="color-metric-select">
@@ -273,7 +273,7 @@
         this._div.innerHTML =
           `<strong>${props.AC_NAME || "Unknown"} (${props.AC_NO ?? "-"})</strong>` +
           `Contiguous: ${String(m.is_contiguous)}<br>` +
-          `Parts: ${m.part_count ?? "-"}<br>` +
+          `Parts (>=0.1% area): ${m.part_count ?? "-"}<br>` +
           `Polsby-Popper: ${num(m.polsby_popper_score)} (${m.polsby_popper_category || "Unknown"})<br>` +
           `Reock: ${num(m.reock_score)} (${m.reock_category || "Unknown"})`;
       };
