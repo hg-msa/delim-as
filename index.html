@@ -45,6 +45,21 @@
       margin: 0;
       font-size: 0.93rem;
     }
+    .controls-row {
+      margin-top: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+    }
+    .controls-row select {
+      border: 1px solid #b5b1a4;
+      border-radius: 6px;
+      padding: 4px 8px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 0.9rem;
+    }
     .grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -159,7 +174,15 @@
   <div class="wrap">
     <section class="title">
       <h1>Assam AC Boundary Comparison</h1>
-      <p>Left: <code>ASSAM_ASSEMBLY_pre2023</code> dissolved by <code>AC_NO</code>. Right: <code>assam-assembly-delimited</code> dissolved by <code>AC_NO</code>. Colors follow Polsby-Popper compactness category.</p>
+      <p>Left: <code>ASSAM_ASSEMBLY_pre2023</code> dissolved by <code>AC_NO</code>. Right: <code>assam-assembly-delimited</code> dissolved by <code>AC_NO</code>. Use the selector to recolor by compactness metric.</p>
+      <label class="controls-row">
+        Color geographies by:
+        <select id="color-metric-select">
+          <option value="polsby_popper">Polsby-Popper</option>
+          <option value="convex_hull">Convex Hull Ratio</option>
+          <option value="reock">Reock</option>
+        </select>
+      </label>
     </section>
 
     <section class="grid">
@@ -176,7 +199,7 @@
     </section>
 
     <section class="legend">
-      <div><strong>Compactness Category (Polsby-Popper)</strong></div>
+      <div><strong id="legend-title">Compactness Category (Polsby-Popper)</strong></div>
       <div class="swatches" id="legend-swatches"></div>
       <div>Hover an AC to compare the same <code>AC_NO</code> in both maps. Click to zoom.</div>
     </section>
@@ -198,6 +221,16 @@
       "Unknown": "#9b9b9b"
     };
     const CATEGORY_ORDER = ["Very High", "High", "Moderate", "Low", "Very Low", "Unknown"];
+    const METRIC_CONFIG = {
+      polsby_popper: { label: "Polsby-Popper", categoryField: "polsby_popper_category" },
+      convex_hull: { label: "Convex Hull Ratio", categoryField: "convex_hull_ratio_category" },
+      reock: { label: "Reock", categoryField: "reock_category" }
+    };
+    let activeMetricKey = "polsby_popper";
+    let leftLayerRef;
+    let rightLayerRef;
+    const metricSelect = document.getElementById("color-metric-select");
+    const legendTitleEl = document.getElementById("legend-title");
 
     const legendEl = document.getElementById("legend-swatches");
     Object.entries(COLOR_BY_CATEGORY).forEach(([label, color]) => {
@@ -244,7 +277,8 @@
           `Contiguous: ${String(m.is_contiguous)}<br>` +
           `Parts: ${m.part_count ?? "-"}<br>` +
           `Convex Hull Ratio: ${num(m.convex_hull_ratio)} (${m.convex_hull_ratio_category || "Unknown"})<br>` +
-          `Polsby-Popper: ${num(m.polsby_popper_score)} (${m.polsby_popper_category || "Unknown"})`;
+          `Polsby-Popper: ${num(m.polsby_popper_score)} (${m.polsby_popper_category || "Unknown"})<br>` +
+          `Reock: ${num(m.reock_score)} (${m.reock_category || "Unknown"})`;
       };
       ctl.addTo(map);
       return ctl;
@@ -304,11 +338,21 @@
       container.appendChild(title);
       createStack(container, "Convex Hull", categoryCounts(rows, "convex_hull_ratio_category"), total);
       createStack(container, "Polsby-Popper", categoryCounts(rows, "polsby_popper_category"), total);
+      createStack(container, "Reock", categoryCounts(rows, "reock_category"), total);
+    }
+
+    function getActiveCategoryField() {
+      return (METRIC_CONFIG[activeMetricKey] || METRIC_CONFIG.polsby_popper).categoryField;
+    }
+
+    function refreshLegendTitle() {
+      const label = (METRIC_CONFIG[activeMetricKey] || METRIC_CONFIG.polsby_popper).label;
+      legendTitleEl.textContent = `Compactness Category (${label})`;
     }
 
     function styleFor(feature) {
       const m = feature.properties._metrics || {};
-      const cat = m.polsby_popper_category || "Unknown";
+      const cat = m[getActiveCategoryField()] || "Unknown";
       return {
         color: "#3f3f3f",
         weight: 1,
@@ -316,6 +360,12 @@
         fillOpacity: 0.58,
         fillColor: COLOR_BY_CATEGORY[cat] || COLOR_BY_CATEGORY.Unknown
       };
+    }
+
+    function recolorMaps() {
+      refreshLegendTitle();
+      if (leftLayerRef) leftLayerRef.setStyle(styleFor);
+      if (rightLayerRef) rightLayerRef.setStyle(styleFor);
     }
 
     function hoverStyle(layer) {
@@ -355,8 +405,6 @@
 
       const leftIndex = new Map();
       const rightIndex = new Map();
-      let leftLayerRef;
-      let rightLayerRef;
 
       function wireEvents(side, layer, feature) {
         const ac = String(feature.properties.AC_NO);
@@ -417,9 +465,15 @@
 
       mapLeft.fitBounds(leftLayerRef.getBounds().pad(0.05));
       mapRight.fitBounds(rightLayerRef.getBounds().pad(0.05));
+      recolorMaps();
     }).catch((err) => {
       alert(`Map data load error: ${err.message}`);
       console.error(err);
+    });
+
+    metricSelect.addEventListener("change", (e) => {
+      activeMetricKey = e.target.value in METRIC_CONFIG ? e.target.value : "polsby_popper";
+      recolorMaps();
     });
   </script>
 </body>
