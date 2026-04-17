@@ -84,14 +84,9 @@
       background: #fff;
       color: var(--ink);
     }
-    .map-wrap {
-      display: grid;
-      grid-template-columns: 1fr 300px;
-      gap: 10px;
-    }
     .split-view {
       display: grid;
-      grid-template-columns: 1.05fr 1fr;
+      grid-template-columns: 0.9fr 1.3fr;
       gap: 12px;
       align-items: start;
     }
@@ -107,8 +102,11 @@
       font-weight: 700;
       color: #314154;
     }
+    .map-panel {
+      position: relative;
+    }
     #map {
-      height: 520px;
+      height: 620px;
       border: 1px solid var(--line);
       border-radius: 10px;
     }
@@ -118,10 +116,34 @@
       padding: 10px;
       font-size: 0.86rem;
       background: #fcfaf4;
+      margin-top: 10px;
     }
     .map-note h3 {
       margin: 0 0 8px;
       font-size: 0.95rem;
+    }
+    .split-detail-card {
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      width: 320px;
+      max-height: 45%;
+      overflow: auto;
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid #bfc7d0;
+      border-radius: 10px;
+      padding: 10px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+      font-size: 0.84rem;
+      line-height: 1.35;
+    }
+    .split-detail-card h4 {
+      margin: 0 0 6px;
+      font-size: 0.9rem;
+    }
+    .split-lines {
+      margin: 0;
+      padding-left: 16px;
     }
     .legend-item {
       display: flex;
@@ -178,8 +200,13 @@
     @media (max-width: 1050px) {
       .stats { grid-template-columns: repeat(2, 1fr); }
       .split-view { grid-template-columns: 1fr; }
-      .map-wrap { grid-template-columns: 1fr; }
-      #map { height: 440px; }
+      #map { height: 460px; }
+      .split-detail-card {
+        position: static;
+        width: 100%;
+        max-height: none;
+        margin-top: 10px;
+      }
       .table-wrap { max-height: 50vh; }
     }
   </style>
@@ -226,7 +253,6 @@
                   <th>Delta</th>
                   <th>Parts >10%</th>
                   <th>Classification</th>
-                  <th>Split Detail</th>
                 </tr>
               </thead>
               <tbody id="tbl"></tbody>
@@ -235,18 +261,22 @@
         </div>
         <div class="col-card">
           <h3 class="col-title">Map Split View</h3>
-          <div class="map-wrap">
+          <div class="map-panel">
             <div id="map"></div>
-            <aside class="map-note">
-              <h3>Map Guide</h3>
-              <div class="legend-item"><span class="chip" style="background:#1d4ed8"></span> Selected Pre-delim AC</div>
-              <div class="legend-item"><span class="chip" style="background:#fcae91"></span> Post AC part (10-20% of pre area)</div>
-              <div class="legend-item"><span class="chip" style="background:#fb6a4a"></span> Post AC part (20-35%)</div>
-              <div class="legend-item"><span class="chip" style="background:#de2d26"></span> Post AC part (35-50%)</div>
-              <div class="legend-item"><span class="chip" style="background:#a50f15"></span> Post AC part (>50%)</div>
+            <div class="split-detail-card">
+              <h4>Selected AC Split</h4>
               <p id="selectionText">No AC selected yet.</p>
-            </aside>
+              <ul id="splitDetailLines" class="split-lines"></ul>
+            </div>
           </div>
+          <aside class="map-note">
+            <h3>Map Guide</h3>
+            <div class="legend-item"><span class="chip" style="background:#1d4ed8"></span> Selected Pre-delim AC</div>
+            <div class="legend-item"><span class="chip" style="background:#fcae91"></span> Post AC part (10-20% of pre area)</div>
+            <div class="legend-item"><span class="chip" style="background:#fb6a4a"></span> Post AC part (20-35%)</div>
+            <div class="legend-item"><span class="chip" style="background:#de2d26"></span> Post AC part (35-50%)</div>
+            <div class="legend-item"><span class="chip" style="background:#a50f15"></span> Post AC part (>50%)</div>
+          </aside>
         </div>
       </div>
     </section>
@@ -264,6 +294,7 @@
     const reducedFilter = document.getElementById("reducedFilter");
     const searchBox = document.getElementById("searchBox");
     const selectionText = document.getElementById("selectionText");
+    const splitDetailLines = document.getElementById("splitDetailLines");
 
     const map = L.map("map").setView([26.2, 92.7], 7);
     L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
@@ -367,6 +398,12 @@
       if (b.isValid()) map.fitBounds(b.pad(0.15));
 
       selectionText.textContent = `${row.pre_ac_name} (${row.pre_ac_no}) -> ${row.parts_gt10pct} major post-delim parts`;
+      splitDetailLines.innerHTML = "";
+      (row.major_parts || []).forEach((p) => {
+        const li = document.createElement("li");
+        li.textContent = `${p.post_ac_name} (${p.post_ac_no}): ${n(p.share_pct_of_pre, 1)}% of pre area, Muslim ${n(p.post_muslim_pct, 1)}%`;
+        splitDetailLines.appendChild(li);
+      });
     }
 
     function renderTable() {
@@ -382,7 +419,6 @@
           <td>${n(r.delta_weighted_post_minus_pre)} pp</td>
           <td>${r.parts_gt10pct}</td>
           <td><span class="tag ${clsTag(r.classification)}">${r.classification}</span></td>
-          <td>${r.split_ratio_gt10pct || "-"}</td>
         `;
         tr.addEventListener("click", () => {
           showSplit(r);
