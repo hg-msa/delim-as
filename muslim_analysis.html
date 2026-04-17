@@ -422,7 +422,8 @@
         `;
         tr.addEventListener("click", () => {
           showSplit(r);
-          renderTable();
+          tblEl.querySelectorAll("tr").forEach((rowEl) => rowEl.classList.remove("row-active"));
+          tr.classList.add("row-active");
         });
         tblEl.appendChild(tr);
       });
