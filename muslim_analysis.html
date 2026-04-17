@@ -86,8 +86,26 @@
     }
     .map-wrap {
       display: grid;
-      grid-template-columns: 1fr 330px;
+      grid-template-columns: 1fr 300px;
       gap: 10px;
+    }
+    .split-view {
+      display: grid;
+      grid-template-columns: 1.05fr 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+    .col-card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      background: #fffdf8;
+    }
+    .col-title {
+      margin: 0 0 8px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #314154;
     }
     #map {
       height: 520px;
@@ -136,10 +154,11 @@
       z-index: 1;
     }
     .table-wrap {
-      max-height: 58vh;
+      max-height: 520px;
       overflow: auto;
       border: 1px solid var(--line);
       border-radius: 10px;
+      background: #fff;
     }
     .tag {
       display: inline-block;
@@ -158,8 +177,10 @@
     }
     @media (max-width: 1050px) {
       .stats { grid-template-columns: repeat(2, 1fr); }
+      .split-view { grid-template-columns: 1fr; }
       .map-wrap { grid-template-columns: 1fr; }
       #map { height: 440px; }
+      .table-wrap { max-height: 50vh; }
     }
   </style>
 </head>
@@ -171,19 +192,6 @@
     </section>
 
     <section class="card stats" id="stats"></section>
-
-    <section class="card map-wrap">
-      <div id="map"></div>
-      <aside class="map-note">
-        <h3>Map Guide</h3>
-        <div class="legend-item"><span class="chip" style="background:#1d4ed8"></span> Selected Pre-delim AC</div>
-        <div class="legend-item"><span class="chip" style="background:#fcae91"></span> Post AC part (10-20% of pre area)</div>
-        <div class="legend-item"><span class="chip" style="background:#fb6a4a"></span> Post AC part (20-35%)</div>
-        <div class="legend-item"><span class="chip" style="background:#de2d26"></span> Post AC part (35-50%)</div>
-        <div class="legend-item"><span class="chip" style="background:#a50f15"></span> Post AC part (>50%)</div>
-        <p id="selectionText">No AC selected yet.</p>
-      </aside>
-    </section>
 
     <section class="card">
       <div class="controls">
@@ -205,21 +213,41 @@
     </section>
 
     <section class="card">
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Pre AC</th>
-              <th>Pre Muslim%</th>
-              <th>Weighted Post Muslim%</th>
-              <th>Delta</th>
-              <th>Parts >10%</th>
-              <th>Classification</th>
-              <th>Split Detail</th>
-            </tr>
-          </thead>
-          <tbody id="tbl"></tbody>
-        </table>
+      <div class="split-view">
+        <div class="col-card">
+          <h3 class="col-title">Table (Click Row To Map)</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Pre AC</th>
+                  <th>Pre Muslim%</th>
+                  <th>Weighted Post Muslim%</th>
+                  <th>Delta</th>
+                  <th>Parts >10%</th>
+                  <th>Classification</th>
+                  <th>Split Detail</th>
+                </tr>
+              </thead>
+              <tbody id="tbl"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="col-card">
+          <h3 class="col-title">Map Split View</h3>
+          <div class="map-wrap">
+            <div id="map"></div>
+            <aside class="map-note">
+              <h3>Map Guide</h3>
+              <div class="legend-item"><span class="chip" style="background:#1d4ed8"></span> Selected Pre-delim AC</div>
+              <div class="legend-item"><span class="chip" style="background:#fcae91"></span> Post AC part (10-20% of pre area)</div>
+              <div class="legend-item"><span class="chip" style="background:#fb6a4a"></span> Post AC part (20-35%)</div>
+              <div class="legend-item"><span class="chip" style="background:#de2d26"></span> Post AC part (35-50%)</div>
+              <div class="legend-item"><span class="chip" style="background:#a50f15"></span> Post AC part (>50%)</div>
+              <p id="selectionText">No AC selected yet.</p>
+            </aside>
+          </div>
+        </div>
       </div>
     </section>
   </main>
@@ -329,8 +357,13 @@
         lyr.bindPopup(txt);
       });
 
-      const fg = L.featureGroup([preLayerGroup, postLayerGroup]);
-      const b = fg.getBounds();
+      const b = L.latLngBounds([]);
+      preLayerGroup.eachLayer((l) => {
+        if (typeof l.getBounds === "function") b.extend(l.getBounds());
+      });
+      postLayerGroup.eachLayer((l) => {
+        if (typeof l.getBounds === "function") b.extend(l.getBounds());
+      });
       if (b.isValid()) map.fitBounds(b.pad(0.15));
 
       selectionText.textContent = `${row.pre_ac_name} (${row.pre_ac_no}) -> ${row.parts_gt10pct} major post-delim parts`;

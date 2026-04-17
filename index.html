@@ -60,6 +60,21 @@
       color: var(--ink);
       font-size: 0.9rem;
     }
+    .action-btn {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 7px 11px;
+      border-radius: 8px;
+      background: #0e6e6e;
+      color: #fff;
+      text-decoration: none;
+      border: 1px solid #0b5f5f;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+    .action-btn:hover {
+      background: #0c5d5d;
+    }
     .grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -175,7 +190,7 @@
     <section class="title">
       <h1>Assam AC Boundary Comparison</h1>
       <p>Left: <code>ASSAM_ASSEMBLY_pre2023</code> dissolved by <code>AC_NO</code>. Right: <code>assam-assembly-delimited</code> dissolved by <code>AC_NO</code>. Use the selector to recolor by compactness metric. Contiguity uses a 0.1% minimum part-area threshold.</p>
-      <p><a href="./muslim_analysis.html">Open Muslim% Cracking/Packing Analysis</a></p>
+      <a class="action-btn" href="./muslim_analysis.html">Open Muslim% Cracking/Packing Analysis</a>
       <label class="controls-row">
         Color geographies by:
         <select id="color-metric-select">
