@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Assam Muslim% Split Analysis</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <style>
+    :root {
+      --bg: #f6f3eb;
+      --ink: #1f2d3d;
+      --card: #fff;
+      --line: #dad4c6;
+      --good: #2a9d8f;
+      --warn: #f4a261;
+      --risk: #e76f51;
+      --neutral: #5f6c7b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at top left, #fdfbf4, var(--bg));
+    }
+    .wrap {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: 1.2rem;
+    }
+    .sub {
+      margin: 0;
+      font-size: 0.92rem;
+      color: #4e5a68;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      background: #fffdf8;
+    }
+    .stat .k {
+      font-size: 0.8rem;
+      color: #5a6776;
+    }
+    .stat .v {
+      margin-top: 4px;
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      font-size: 0.9rem;
+    }
+    select, input {
+      border: 1px solid #b5b1a4;
+      border-radius: 6px;
+      padding: 6px 8px;
+      background: #fff;
+      color: var(--ink);
+    }
+    .map-wrap {
+      display: grid;
+      grid-template-columns: 1fr 330px;
+      gap: 10px;
+    }
+    #map {
+      height: 520px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+    .map-note {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 0.86rem;
+      background: #fcfaf4;
+    }
+    .map-note h3 {
+      margin: 0 0 8px;
+      font-size: 0.95rem;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .chip {
+      width: 14px;
+      height: 14px;
+      border: 1px solid #999;
+      display: inline-block;
+      border-radius: 2px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    th, td {
+      border-bottom: 1px solid #eee5d2;
+      padding: 7px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      background: #fbf8f1;
+      z-index: 1;
+    }
+    .table-wrap {
+      max-height: 58vh;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+    .tag {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 999px;
+      color: #fff;
+      font-size: 0.78rem;
+      white-space: nowrap;
+    }
+    .t-risk { background: var(--risk); }
+    .t-warn { background: var(--warn); color: #2e220f; }
+    .t-good { background: var(--good); }
+    .t-neutral { background: var(--neutral); }
+    .row-active {
+      background: #f5f9ff;
+    }
+    @media (max-width: 1050px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .map-wrap { grid-template-columns: 1fr; }
+      #map { height: 440px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <h1>Muslim% Band Shift: Pre vs Post Delimitation</h1>
+      <p class="sub">Tracks pre-delim seats in the 35-65% Muslim band and how each seat area split into post-delim seats (>10% overlap parts only). Click any row below to view the split on map.</p>
+    </section>
+
+    <section class="card stats" id="stats"></section>
+
+    <section class="card map-wrap">
+      <div id="map"></div>
+      <aside class="map-note">
+        <h3>Map Guide</h3>
+        <div class="legend-item"><span class="chip" style="background:#1d4ed8"></span> Selected Pre-delim AC</div>
+        <div class="legend-item"><span class="chip" style="background:#fcae91"></span> Post AC part (10-20% of pre area)</div>
+        <div class="legend-item"><span class="chip" style="background:#fb6a4a"></span> Post AC part (20-35%)</div>
+        <div class="legend-item"><span class="chip" style="background:#de2d26"></span> Post AC part (35-50%)</div>
+        <div class="legend-item"><span class="chip" style="background:#a50f15"></span> Post AC part (>50%)</div>
+        <p id="selectionText">No AC selected yet.</p>
+      </aside>
+    </section>
+
+    <section class="card">
+      <div class="controls">
+        <label>Classification
+          <select id="classFilter">
+            <option value="all">All</option>
+          </select>
+        </label>
+        <label>Only reduced
+          <select id="reducedFilter">
+            <option value="all">All</option>
+            <option value="yes">Yes</option>
+          </select>
+        </label>
+        <label>Search AC
+          <input id="searchBox" type="text" placeholder="Type AC name..." />
+        </label>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Pre AC</th>
+              <th>Pre Muslim%</th>
+              <th>Weighted Post Muslim%</th>
+              <th>Delta</th>
+              <th>Parts >10%</th>
+              <th>Classification</th>
+              <th>Split Detail</th>
+            </tr>
+          </thead>
+          <tbody id="tbl"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script>
+    const statsEl = document.getElementById("stats");
+    const tblEl = document.getElementById("tbl");
+    const classFilter = document.getElementById("classFilter");
+    const reducedFilter = document.getElementById("reducedFilter");
+    const searchBox = document.getElementById("searchBox");
+    const selectionText = document.getElementById("selectionText");
+
+    const map = L.map("map").setView([26.2, 92.7], 7);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+      attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
+      maxZoom: 19
+    }).addTo(map);
+
+    const preLayerGroup = L.layerGroup().addTo(map);
+    const postLayerGroup = L.layerGroup().addTo(map);
+
+    let allRows = [];
+    let preByAc = new Map();
+    let postByAc = new Map();
+    let activePreAc = null;
+
+    function clsTag(c) {
+      if (c === "Cracking candidate") return "t-risk";
+      if (c === "Packing candidate") return "t-warn";
+      if (c === "Band retained (in part)") return "t-good";
+      return "t-neutral";
+    }
+
+    function n(v, d = 2) {
+      const x = Number(v);
+      return Number.isFinite(x) ? x.toFixed(d) : "-";
+    }
+
+    function normAc(v) {
+      let s = String(v ?? "").trim();
+      if (s.endsWith(".0")) s = s.slice(0, -2);
+      return s;
+    }
+
+    function shareColor(share) {
+      const x = Number(share);
+      if (x > 50) return "#a50f15";
+      if (x > 35) return "#de2d26";
+      if (x > 20) return "#fb6a4a";
+      return "#fcae91";
+    }
+
+    function renderStats(summary) {
+      statsEl.innerHTML = "";
+      const cards = [
+        ["Pre seats in 35-65%", summary.pre_total_in_band],
+        ["Post seats in 35-65%", summary.post_total_in_band],
+        ["Pre band seats analyzed", summary.analyzed_pre_rows],
+        ["Split threshold", `>${summary.split_threshold_pct}%`]
+      ];
+      cards.forEach(([k, v]) => {
+        const div = document.createElement("div");
+        div.className = "stat";
+        div.innerHTML = `<div class="k">${k}</div><div class="v">${v}</div>`;
+        statsEl.appendChild(div);
+      });
+    }
+
+    function getFilteredRows() {
+      const c = classFilter.value;
+      const r = reducedFilter.value;
+      const q = searchBox.value.trim().toLowerCase();
+      return allRows.filter((row) => {
+        if (c !== "all" && row.classification !== c) return false;
+        if (r === "yes" && !(Number(row.delta_weighted_post_minus_pre) < 0)) return false;
+        if (q && !String(row.pre_ac_name).toLowerCase().includes(q)) return false;
+        return true;
+      });
+    }
+
+    function showSplit(row) {
+      activePreAc = normAc(row.pre_ac_no);
+      preLayerGroup.clearLayers();
+      postLayerGroup.clearLayers();
+
+      const preFeature = preByAc.get(activePreAc);
+      if (preFeature) {
+        const preLayer = L.geoJSON(preFeature, {
+          style: { color: "#1d4ed8", weight: 3, fillColor: "#1d4ed8", fillOpacity: 0.08 }
+        }).addTo(preLayerGroup);
+        preLayer.bindTooltip(`Pre: ${row.pre_ac_name} (${row.pre_ac_no})`, { sticky: true });
+      }
+
+      row.major_parts.forEach((p) => {
+        const postFeature = postByAc.get(normAc(p.post_ac_no));
+        if (!postFeature) return;
+        const c = shareColor(p.share_pct_of_pre);
+        const lyr = L.geoJSON(postFeature, {
+          style: { color: "#7f1d1d", weight: 1.5, fillColor: c, fillOpacity: 0.45 }
+        }).addTo(postLayerGroup);
+        const txt = `Post: ${p.post_ac_name} (${p.post_ac_no})<br>Share of pre area: ${n(p.share_pct_of_pre,1)}%<br>Muslim%: ${n(p.post_muslim_pct,1)}%`;
+        lyr.bindPopup(txt);
+      });
+
+      const fg = L.featureGroup([preLayerGroup, postLayerGroup]);
+      const b = fg.getBounds();
+      if (b.isValid()) map.fitBounds(b.pad(0.15));
+
+      selectionText.textContent = `${row.pre_ac_name} (${row.pre_ac_no}) -> ${row.parts_gt10pct} major post-delim parts`;
+    }
+
+    function renderTable() {
+      const rows = getFilteredRows();
+      tblEl.innerHTML = "";
+      rows.forEach((r) => {
+        const tr = document.createElement("tr");
+        tr.className = normAc(r.pre_ac_no) === activePreAc ? "row-active" : "";
+        tr.innerHTML = `
+          <td>${r.pre_ac_name} (${r.pre_ac_no})</td>
+          <td>${n(r.pre_muslim_pct)}%</td>
+          <td>${n(r.weighted_post_muslim_pct)}%</td>
+          <td>${n(r.delta_weighted_post_minus_pre)} pp</td>
+          <td>${r.parts_gt10pct}</td>
+          <td><span class="tag ${clsTag(r.classification)}">${r.classification}</span></td>
+          <td>${r.split_ratio_gt10pct || "-"}</td>
+        `;
+        tr.addEventListener("click", () => {
+          showSplit(r);
+          renderTable();
+        });
+        tblEl.appendChild(tr);
+      });
+    }
+
+    Promise.all([
+      fetch("./data/muslim_split_analysis.json").then((r) => r.json()),
+      fetch("./data/pre2023.geojson").then((r) => r.json()),
+      fetch("./data/delimited.geojson").then((r) => r.json())
+    ])
+      .then(([analysis, preGeo, postGeo]) => {
+        allRows = analysis.rows || [];
+        renderStats(analysis.summary || {});
+
+        (preGeo.features || []).forEach((f) => preByAc.set(normAc(f.properties?.AC_NO), f));
+        (postGeo.features || []).forEach((f) => postByAc.set(normAc(f.properties?.AC_NO), f));
+
+        const classes = Array.from(new Set(allRows.map((r) => r.classification))).sort();
+        classes.forEach((c) => {
+          const o = document.createElement("option");
+          o.value = c;
+          o.textContent = c;
+          classFilter.appendChild(o);
+        });
+
+        renderTable();
+        if (allRows.length) {
+          showSplit(allRows[0]);
+          renderTable();
+        }
+      })
+      .catch((e) => {
+        alert("Failed to load analysis data: " + e.message);
+      });
+
+    classFilter.addEventListener("change", renderTable);
+    reducedFilter.addEventListener("change", renderTable);
+    searchBox.addEventListener("input", renderTable);
+  </script>
+</body>
+</html>
